@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Sales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f2;
+    --surface: #fcfcfb;
+    --border: #e6e5e1;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #8a8984;
+    --track: #efeeea;
+    --bar: #2a78d6;
+    --bar-hover: #256abf;
+    --zero: #d6d5d0;
+    --accent-soft: #e8f1fc;
+    --shadow: 0 1px 2px rgba(16,16,14,.04), 0 4px 16px rgba(16,16,14,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121211;
+      --surface: #1a1a19;
+      --border: #2c2c2a;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e86;
+      --track: #232322;
+      --bar: #3987e5;
+      --bar-hover: #5598e7;
+      --zero: #3a3a37;
+      --accent-soft: #1c2b3f;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1a1a19;
+    --border: #2c2c2a;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --track: #232322;
+    --bar: #3987e5;
+    --bar-hover: #5598e7;
+    --zero: #3a3a37;
+    --accent-soft: #1c2b3f;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 48px; }
+
+  /* Header */
+  header {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 28px; height: 28px; border-radius: 8px; background: var(--bar);
+    display: grid; place-items: center;
+  }
+  .brand-mark svg { width: 16px; height: 16px; }
+  .brand h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  .datenav {
+    display: inline-flex; align-items: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    height: 36px; box-shadow: var(--shadow);
+  }
+  .datenav button {
+    all: unset; cursor: pointer; width: 34px; height: 34px;
+    display: grid; place-items: center; color: var(--text-secondary); border-radius: 9px;
+  }
+  .datenav button:hover:not(:disabled) { color: var(--text-primary); background: var(--track); }
+  .datenav button:disabled { opacity: .3; cursor: default; }
+  .datenav button:focus-visible, .seg button:focus-visible, .today:focus-visible { outline: 2px solid var(--bar); outline-offset: 1px; }
+  .datenav label { position: relative; padding: 0 6px; font-size: 14px; font-weight: 500; min-width: 128px; text-align: center; cursor: pointer; }
+  .datenav input[type=date] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+  .datenav input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+
+  .today {
+    all: unset; cursor: pointer; height: 36px; padding: 0 14px; border-radius: 10px;
+    font-size: 14px; font-weight: 500; color: var(--text-secondary);
+    border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow);
+    display: inline-flex; align-items: center;
+  }
+  .today:hover { color: var(--text-primary); }
+  .today[hidden] { display: none; }
+
+  .seg {
+    display: inline-flex; padding: 3px; gap: 2px; height: 36px;
+    background: var(--track); border-radius: 10px;
+  }
+  .seg button {
+    all: unset; cursor: pointer; padding: 0 12px; border-radius: 7px;
+    font-size: 13px; font-weight: 500; color: var(--text-secondary);
+    display: inline-flex; align-items: center;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* Hero */
+  .hero { padding: 28px 28px 24px; margin-bottom: 16px; }
+  .hero-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin: 0 0 6px; }
+  .hero-value {
+    font-size: clamp(44px, 9vw, 72px); font-weight: 700; letter-spacing: -.035em;
+    line-height: 1.05; margin: 0;
+  }
+  .hero-value .cents { color: var(--text-muted); font-weight: 600; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat dt { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .stat dd { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+
+  /* Chart */
+  .chart-card { padding: 24px 28px 20px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  .chart-head h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .chart-head span { font-size: 12px; color: var(--text-muted); }
+
+  .bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .bar-row {
+    display: grid; grid-template-columns: minmax(72px, 140px) 1fr; align-items: center; gap: 16px;
+    padding: 8px 0; position: relative; border-radius: 8px;
+  }
+  .bar-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; }
+  .rank { font-size: 12px; color: var(--text-muted); font-weight: 500; width: 14px; flex: none; }
+  .bar-track { display: flex; align-items: center; gap: 10px; min-width: 0; height: 28px; }
+  .bar {
+    height: 24px; border-radius: 0 4px 4px 0; background: var(--bar);
+    min-width: 2px; transition: width .5s cubic-bezier(.2,.7,.2,1), background-color .15s;
+  }
+  .bar.zero { background: var(--zero); width: 2px !important; }
+  .bar-row:hover .bar:not(.zero) { background: var(--bar-hover); }
+  .bar-value { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .bar-value small { font-weight: 500; color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+  .bar-row.is-zero .bar-value { color: var(--text-muted); font-weight: 500; }
+
+  .axis { display: grid; grid-template-columns: minmax(72px, 140px) 1fr; gap: 16px; margin-top: 6px; }
+  .axis-line { border-top: 1px solid var(--border); }
+
+  .empty { padding: 40px 0 28px; text-align: center; color: var(--text-muted); font-size: 14px; }
+  .empty strong { display: block; color: var(--text-secondary); font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 10; opacity: 0; transition: opacity .1s;
+    background: var(--surface); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-size: 13px; min-width: 170px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+  .tooltip div { display: flex; justify-content: space-between; gap: 16px; color: var(--text-secondary); line-height: 1.6; }
+  .tooltip div b { color: var(--text-primary); font-weight: 600; }
+
+  footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 12px; color: var(--text-muted); }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #1baf7a; }
+  .live.paused .dot { background: var(--text-muted); }
+
+  .error { color: #c0392b; }
+  .skeleton { color: transparent !important; background: var(--track); border-radius: 8px; }
+
+  @media (max-width: 560px) {
+    .wrap { padding-top: 20px; }
+    .hero, .chart-card { padding-left: 18px; padding-right: 18px; }
+    .bar-row, .axis { grid-template-columns: 76px 1fr; gap: 10px; }
+    .controls { width: 100%; }
+    .datenav { flex: 1; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="8" width="3" height="6" rx="1" fill="#fff"/><rect x="6.5" y="4" width="3" height="10" rx="1" fill="#fff"/><rect x="11" y="2" width="3" height="12" rx="1" fill="#fff"/></svg>
+      </div>
+      <h1>Daily Sales</h1>
+    </div>
+    <div class="controls">
+      <div class="datenav" role="group" aria-label="Date">
+        <button id="prev" aria-label="Previous day">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <label><span id="dateLabel">—</span><input type="date" id="datePicker" aria-label="Pick a date"></label>
+        <button id="next" aria-label="Next day">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <button class="today" id="todayBtn" hidden>Today</button>
+      <div class="seg" role="group" aria-label="Metric">
+        <button data-metric="revenue" aria-pressed="true">Revenue</button>
+        <button data-metric="premium" aria-pressed="false">Premium</button>
+        <button data-metric="apps" aria-pressed="false">Apps</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="card hero" aria-live="polite">
+    <p class="hero-label" id="heroLabel">Total produced today</p>
+    <p class="hero-value" id="heroValue"><span class="skeleton">$00,000</span></p>
+    <dl class="stats">
+      <div class="stat"><dt>Applications</dt><dd id="statApps">—</dd></div>
+      <div class="stat"><dt>Monthly premium</dt><dd id="statPremium">—</dd></div>
+      <div class="stat"><dt>Agents producing</dt><dd id="statAgents">—</dd></div>
+      <div class="stat"><dt>Top producer</dt><dd id="statTop">—</dd></div>
+    </dl>
+  </section>
+
+  <section class="card chart-card">
+    <div class="chart-head">
+      <h2 id="chartTitle">Production by agent</h2>
+      <span id="chartSub"></span>
+    </div>
+    <ol class="bars" id="bars"></ol>
+    <div class="axis" aria-hidden="true"><span></span><div class="axis-line"></div></div>
+  </section>
+
+  <footer>
+    <span class="live" id="live"><span class="dot"></span><span id="liveText">Live</span></span>
+    <span>Source: Master Production Sheet · by App Date</span>
+  </footer>
+</div>
+
+<div class="tooltip" id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+  const REFRESH_MS = 60_000;
+  const METRICS = {
+    revenue: { label: 'Revenue', title: 'Projected revenue by agent', fmt: v => money(v) },
+    premium: { label: 'Premium', title: 'Monthly premium by agent', fmt: v => money(v, true) },
+    apps:    { label: 'Apps',    title: 'Applications by agent', fmt: v => String(v) },
+  };
+
+  const qs = new URLSearchParams(location.search);
+  const state = {
+    date: qs.get('date') || null,
+    today: null,
+    metric: METRICS[qs.get('metric')] ? qs.get('metric') : 'revenue',
+    data: null,
+  };
+  let timer = null;
+
+  const $ = id => document.getElementById(id);
+  const fmtMoney0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  const fmtMoney2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  function money(v, cents) { return (cents ? fmtMoney2 : fmtMoney0).format(v || 0); }
+
+  function parseIso(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+  function toIso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  function shift(iso, n) { const d = parseIso(iso); d.setDate(d.getDate() + n); return toIso(d); }
+  function prettyDate(iso) {
+    return parseIso(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function relLabel(iso) {
+    if (!state.today) return 'Total produced';
+    if (iso === state.today) return 'Total produced today';
+    if (iso === shift(state.today, -1)) return 'Total produced yesterday';
+    return 'Total produced on ' + parseIso(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
+
+  async function load({ quiet } = {}) {
+    const url = '/api/production' + (state.date ? '?date=' + state.date : '');
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || res.statusText);
+      state.data = body;
+      state.today = body.today;
+      state.date = body.date;
+      render();
+    } catch (err) {
+      if (!quiet || !state.data) {
+        $('heroValue').innerHTML = '<span class="error" style="font-size:18px;font-weight:500;letter-spacing:0">' + esc(err.message) + '</span>';
+      }
+      $('liveText').textContent = 'Connection issue — retrying';
+    }
+    schedule();
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    const isToday = state.date && state.date === state.today;
+    $('live').classList.toggle('paused', !isToday);
+    if (isToday) timer = setTimeout(() => load({ quiet: true }), REFRESH_MS);
+  }
+
+  function renderHero(d) {
+    const m = state.metric;
+    const total = d.total[m];
+    $('heroLabel').textContent = m === 'apps' ? relLabel(d.date).replace('Total produced', 'Applications written') :
+      m === 'premium' ? relLabel(d.date).replace('Total produced', 'Premium written') : relLabel(d.date);
+    if (m === 'apps') {
+      $('heroValue').textContent = String(total);
+    } else {
+      const s = money(total, true);
+      const [whole, cents] = s.split('.');
+      $('heroValue').innerHTML = esc(whole) + '<span class="cents">.' + esc(cents) + '</span>';
+    }
+    const producing = d.agents.filter(a => a.apps > 0);
+    const top = [...producing].sort((a, b) => b.revenue - a.revenue)[0];
+    $('statApps').textContent = d.total.apps;
+    $('statPremium').textContent = money(d.total.premium, true);
+    $('statAgents').textContent = `${producing.length} of ${d.agents.length}`;
+    $('statTop').textContent = top ? top.agent : '—';
+  }
+
+  function renderBars(d) {
+    const m = state.metric;
+    const meta = METRICS[m];
+    $('chartTitle').textContent = meta.title;
+    const agents = [...d.agents].sort((a, b) => (b[m] - a[m]) || a.agent.localeCompare(b.agent));
+    const max = Math.max(0, ...agents.map(a => a[m]));
+    const list = $('bars');
+
+    if (!agents.length) {
+      list.innerHTML = '<li class="empty"><strong>No production logged</strong>Nothing on the sheet for ' + esc(prettyDate(d.date)) + ' yet.</li>';
+      $('chartSub').textContent = '';
+      return;
+    }
+    $('chartSub').textContent = d.total.apps ? '' : 'No apps logged yet';
+
+    list.innerHTML = agents.map((a, i) => {
+      const v = a[m];
+      const pct = max > 0 ? (v / max) * 82 : 0; // leave room for the value label
+      const zero = v <= 0;
+      const extra = m === 'apps' ? '' : `<small>${a.apps} app${a.apps === 1 ? '' : 's'}</small>`;
+      return `<li class="bar-row${zero ? ' is-zero' : ''}" data-i="${i}" tabindex="0"
+                 aria-label="${esc(a.agent)}: ${esc(meta.fmt(v))}, ${a.apps} applications">
+          <span class="bar-name"><span class="rank">${zero ? '' : i + 1}</span>${esc(a.agent)}</span>
+          <span class="bar-track">
+            <span class="bar${zero ? ' zero' : ''}" style="width:0%" data-w="${pct}"></span>
+            <span class="bar-value">${esc(meta.fmt(v))}${extra}</span>
+          </span>
+        </li>`;
+    }).join('');
+    requestAnimationFrame(() => list.querySelectorAll('.bar').forEach(b => { b.style.width = b.dataset.w + '%'; }));
+    list._agents = agents;
+  }
+
+  function render() {
+    const d = state.data;
+    $('dateLabel').textContent = prettyDate(d.date);
+    $('datePicker').value = d.date;
+    $('datePicker').max = d.today;
+    $('next').disabled = d.date >= d.today;
+    $('todayBtn').hidden = d.date === d.today;
+    const t = new Date(d.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    $('liveText').textContent = d.date === d.today ? `Live · updated ${t}` : `Viewing ${prettyDate(d.date)}`;
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.metric === state.metric)));
+    renderHero(d);
+    renderBars(d);
+  }
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (state.date && state.date !== state.today) p.set('date', state.date);
+    if (state.metric !== 'revenue') p.set('metric', state.metric);
+    history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+  }
+
+  function go(date) { state.date = date; syncUrl(); load(); }
+
+  $('prev').onclick = () => state.date && go(shift(state.date, -1));
+  $('next').onclick = () => state.date && state.date < state.today && go(shift(state.date, 1));
+  $('todayBtn').onclick = () => go(state.today);
+  $('datePicker').onchange = e => e.target.value && go(e.target.value);
+  document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+    state.metric = b.dataset.metric; syncUrl(); if (state.data) render();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowLeft') $('prev').click();
+    if (e.key === 'ArrowRight') $('next').click();
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load({ quiet: true }); });
+
+  // Tooltip
+  const tip = $('tip');
+  function showTip(row, x, y) {
+    const a = $('bars')._agents && $('bars')._agents[row.dataset.i];
+    if (!a) return;
+    tip.innerHTML = `<h3>${esc(a.agent)}</h3>
+      <div>Revenue <b>${money(a.revenue, true)}</b></div>
+      <div>Premium <b>${money(a.premium, true)}</b></div>
+      <div>Applications <b>${a.apps}</b></div>`;
+    const r = tip.getBoundingClientRect();
+    const left = Math.min(x + 14, innerWidth - r.width - 8);
+    const top = Math.min(y + 14, innerHeight - r.height - 8);
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    tip.classList.add('show');
+  }
+  $('bars').addEventListener('mousemove', e => { const row = e.target.closest('.bar-row'); row ? showTip(row, e.clientX, e.clientY) : tip.classList.remove('show'); });
+  $('bars').addEventListener('mouseleave', () => tip.classList.remove('show'));
+  $('bars').addEventListener('focusin', e => { const row = e.target.closest('.bar-row'); if (row) { const r = row.getBoundingClientRect(); showTip(row, r.left + 140, r.bottom - 10); } });
+  $('bars').addEventListener('focusout', () => tip.classList.remove('show'));
+
+  load();
+})();
+</script>
+</body>
+</html>
