@@ -1,64 +1,37 @@
 'use strict';
 
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
 const { GoogleAuth } = require('google-auth-library');
-const { aggregateDay } = require('./lib/production');
+const { createApp } = require('./lib/app');
 
 const PORT = Number(process.env.PORT) || 3000;
 const SHEET_ID = process.env.SHEET_ID || '1YVvXDVkLQmjQ8zgWlC_Ax-qiP9u8uh2wQfALA53KhOc';
 const SHEET_NAME = process.env.SHEET_NAME || 'Production Sheet';
 const TIMEZONE = process.env.TIMEZONE || 'America/Los_Angeles';
-const CACHE_SECONDS = Number(process.env.CACHE_SECONDS) || 60;
+const POLL_SECONDS = Number(process.env.POLL_SECONDS) || 15;
 const DEMO = process.env.DEMO_MODE === '1';
-
-const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
-
-// ---------- Google Sheets ----------
 
 function loadCredentials() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!raw) return null;
+  if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set');
   const text = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
   return JSON.parse(text);
 }
 
 let auth = null;
-function getAuth() {
+async function loadSheetRows() {
   if (!auth) {
-    const credentials = loadCredentials();
-    if (!credentials) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set');
     auth = new GoogleAuth({
-      credentials,
+      credentials: loadCredentials(),
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
   }
-  return auth;
-}
-
-let cache = { at: 0, rows: null, pending: null };
-
-async function fetchRows() {
-  if (DEMO) return require('./test/fixture').rows;
-  const fresh = cache.rows && Date.now() - cache.at < CACHE_SECONDS * 1000;
-  if (fresh) return cache.rows;
-  if (cache.pending) return cache.pending;
-
-  cache.pending = (async () => {
-    const client = await getAuth().getClient();
-    const range = encodeURIComponent(`'${SHEET_NAME}'`);
-    const url =
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}` +
-      `?valueRenderOption=FORMATTED_VALUE&majorDimension=ROWS`;
-    const res = await client.request({ url });
-    cache = { at: Date.now(), rows: res.data.values || [], pending: null };
-    return cache.rows;
-  })().catch((err) => {
-    cache.pending = null;
-    throw err;
-  });
-  return cache.pending;
+  const client = await auth.getClient();
+  const range = encodeURIComponent(`'${SHEET_NAME}'`);
+  const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}` +
+    `?valueRenderOption=FORMATTED_VALUE&majorDimension=ROWS`;
+  const res = await client.request({ url });
+  return res.data.values || [];
 }
 
 function todayIso() {
@@ -66,41 +39,13 @@ function todayIso() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(new Date());
 }
 
-// ---------- HTTP ----------
-
-function sendJson(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(body));
-}
-
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost');
-
-  if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true });
-
-  if (url.pathname === '/' || url.pathname === '/index.html') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
-    return res.end(INDEX_HTML);
-  }
-
-  if (url.pathname === '/api/production') {
-    const today = DEMO ? require('./test/fixture').today : todayIso();
-    const date = url.searchParams.get('date') || today;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJson(res, 400, { error: 'date must be YYYY-MM-DD' });
-    try {
-      const rows = await fetchRows();
-      const data = aggregateDay(rows, date);
-      return sendJson(res, 200, { ...data, today, updatedAt: new Date(cache.at || Date.now()).toISOString() });
-    } catch (err) {
-      console.error('production error:', err.message);
-      return sendJson(res, 502, { error: 'Could not read the production sheet. Check server logs.' });
-    }
-  }
-
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not found');
+const fixture = DEMO ? require('./test/fixture') : null;
+const app = createApp({
+  loadRows: DEMO ? async () => fixture.rows : loadSheetRows,
+  today: DEMO ? () => fixture.today : todayIso,
+  pollSeconds: POLL_SECONDS,
 });
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Daily sales dashboard listening on :${PORT}${DEMO ? ' (demo mode)' : ''}`);
 });

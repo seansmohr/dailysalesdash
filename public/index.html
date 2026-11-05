@@ -193,6 +193,12 @@
   .live { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: #1baf7a; }
   .live.paused .dot { background: var(--text-muted); }
+  .live:not(.paused) .dot { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(27,175,122,.45); } 50% { box-shadow: 0 0 0 4px rgba(27,175,122,0); } }
+  .flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
+  .hero-value { border-radius: 10px; margin-left: -6px; padding: 0 6px; }
+  @media (prefers-reduced-motion: reduce) { .flash, .live .dot { animation: none !important; } .bar { transition: none; } }
 
   .error { color: #c0392b; }
   .skeleton { color: transparent !important; background: var(--track); border-radius: 8px; }
@@ -272,7 +278,7 @@
 
 <script>
 (() => {
-  const REFRESH_MS = 60_000;
+  const FALLBACK_REFRESH_MS = 60_000; // safety net; live updates arrive via /api/events
   const METRICS = {
     revenue: { label: 'Revenue', title: 'Projected revenue by agent', fmt: v => money(v) },
     premium: { label: 'Premium', title: 'Monthly premium by agent', fmt: v => money(v, true) },
@@ -287,6 +293,7 @@
     data: null,
   };
   let timer = null;
+  let streamOpen = false;
 
   const $ = id => document.getElementById(id);
   const fmtMoney0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
@@ -314,10 +321,15 @@
       const res = await fetch(url, { cache: 'no-store' });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || res.statusText);
+      const prev = state.data;
       state.data = body;
       state.today = body.today;
       state.date = body.date;
       render();
+      if (prev && prev.date === body.date) {
+        if (prev.total.revenue !== body.total.revenue || prev.total.premium !== body.total.premium) flash('heroValue');
+        if (prev.total.apps !== body.total.apps) flash('heroPolicies');
+      }
     } catch (err) {
       if (!quiet || !state.data) {
         $('heroValue').innerHTML = '<span class="error" style="font-size:18px;font-weight:500;letter-spacing:0">' + esc(err.message) + '</span>';
@@ -329,9 +341,40 @@
 
   function schedule() {
     clearTimeout(timer);
-    const isToday = state.date && state.date === state.today;
-    $('live').classList.toggle('paused', !isToday);
-    if (isToday) timer = setTimeout(() => load({ quiet: true }), REFRESH_MS);
+    timer = setTimeout(() => load({ quiet: true }), FALLBACK_REFRESH_MS);
+  }
+
+  function flash(id) {
+    const el = $(id);
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  }
+
+  // Live updates: the server watches the sheet and pings us when it changes.
+  function connectStream() {
+    if (!window.EventSource) return;
+    const es = new EventSource('/api/events');
+    es.addEventListener('hello', () => {
+      const reconnect = streamOpen === null; // was dropped; catch up on anything missed
+      streamOpen = true; updateLive();
+      if (reconnect) load({ quiet: true });
+    });
+    es.addEventListener('update', () => load({ quiet: true }));
+    es.onerror = () => { streamOpen = null; updateLive(); }; // EventSource retries on its own
+  }
+
+  function updateLive() {
+    const d = state.data;
+    const el = $('live');
+    if (!d) return;
+    const t = new Date(d.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if (streamOpen === null) {
+      el.classList.add('paused');
+      $('liveText').textContent = 'Reconnecting…';
+      return;
+    }
+    el.classList.toggle('paused', !streamOpen);
+    const when = d.date === d.today ? '' : ` · viewing ${prettyDate(d.date)}`;
+    $('liveText').textContent = (streamOpen ? 'Live' : 'Auto-refreshing') + when + ` · synced ${t}`;
   }
 
   function renderHero(d) {
@@ -357,6 +400,8 @@
     const agents = [...d.agents].sort((a, b) => (b[m] - a[m]) || a.agent.localeCompare(b.agent));
     const max = Math.max(0, ...agents.map(a => a[m]));
     const list = $('bars');
+    const prevW = {};
+    list.querySelectorAll('.bar-row').forEach(r => { prevW[r.dataset.agent] = r.querySelector('.bar').dataset.w; });
 
     if (!agents.length) {
       list.innerHTML = '<li class="empty"><strong>No production logged</strong>Nothing on the sheet for ' + esc(prettyDate(d.date)) + ' yet.</li>';
@@ -370,11 +415,11 @@
       const pct = max > 0 ? (v / max) * 82 : 0; // leave room for the value label
       const zero = v <= 0;
       const extra = m === 'apps' ? '' : `<span class="pill">${plural(a.apps)}</span>`;
-      return `<li class="bar-row${zero ? ' is-zero' : ''}" data-i="${i}" tabindex="0"
+      return `<li class="bar-row${zero ? ' is-zero' : ''}" data-i="${i}" data-agent="${esc(a.agent)}" tabindex="0"
                  aria-label="${esc(a.agent)}: ${esc(meta.fmt(v))}, ${esc(plural(a.apps))}">
           <span class="bar-name"><span class="rank">${zero ? '' : i + 1}</span>${esc(a.agent)}</span>
           <span class="bar-track">
-            <span class="bar${zero ? ' zero' : ''}" style="width:0%" data-w="${pct}"></span>
+            <span class="bar${zero ? ' zero' : ''}" style="width:${prevW[a.agent] || 0}%" data-w="${pct}"></span>
             <span class="bar-value">${esc(meta.fmt(v))}${extra}</span>
           </span>
         </li>`;
@@ -390,8 +435,7 @@
     $('datePicker').max = d.today;
     $('next').disabled = d.date >= d.today;
     $('todayBtn').hidden = d.date === d.today;
-    const t = new Date(d.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    $('liveText').textContent = d.date === d.today ? `Live · updated ${t}` : `Viewing ${prettyDate(d.date)}`;
+    updateLive();
     document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.metric === state.metric)));
     renderHero(d);
     renderBars(d);
@@ -441,6 +485,7 @@
   $('bars').addEventListener('focusout', () => tip.classList.remove('show'));
 
   load();
+  connectStream();
 })();
 </script>
 </body>
