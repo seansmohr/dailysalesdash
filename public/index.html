@@ -135,6 +135,14 @@
     line-height: 1.05; margin: 0;
   }
   .hero-value .cents { color: var(--text-muted); font-weight: 600; }
+  .hero-grid { display: flex; flex-wrap: wrap; gap: 20px 56px; align-items: flex-end; }
+  .hero-side { padding-left: 56px; border-left: 1px solid var(--border); }
+  .hero-side .hero-value { font-size: clamp(36px, 7vw, 56px); }
+  .pill {
+    display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--text-primary); font-size: 12px; font-weight: 600; margin-left: 8px;
+  }
+  .bar-row.is-zero .pill { background: var(--track); color: var(--text-muted); }
   .stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
   .stat { display: flex; flex-direction: column; gap: 2px; }
   .stat dt { font-size: 12px; color: var(--text-muted); font-weight: 500; }
@@ -194,6 +202,7 @@
     .hero, .chart-card { padding-left: 18px; padding-right: 18px; }
     .bar-row, .axis { grid-template-columns: 76px 1fr; gap: 10px; }
     .controls { width: 100%; }
+    .hero-side { padding-left: 0; border-left: 0; }
     .datenav { flex: 1; justify-content: space-between; }
   }
 </style>
@@ -221,16 +230,23 @@
       <div class="seg" role="group" aria-label="Metric">
         <button data-metric="revenue" aria-pressed="true">Revenue</button>
         <button data-metric="premium" aria-pressed="false">Premium</button>
-        <button data-metric="apps" aria-pressed="false">Apps</button>
+        <button data-metric="apps" aria-pressed="false">Policies</button>
       </div>
     </div>
   </header>
 
   <section class="card hero" aria-live="polite">
-    <p class="hero-label" id="heroLabel">Total produced today</p>
-    <p class="hero-value" id="heroValue"><span class="skeleton">$00,000</span></p>
+    <div class="hero-grid">
+      <div>
+        <p class="hero-label" id="heroLabel">Total produced today</p>
+        <p class="hero-value" id="heroValue"><span class="skeleton">$00,000</span></p>
+      </div>
+      <div class="hero-side">
+        <p class="hero-label">Policies written</p>
+        <p class="hero-value" id="heroPolicies"><span class="skeleton">00</span></p>
+      </div>
+    </div>
     <dl class="stats">
-      <div class="stat"><dt>Applications</dt><dd id="statApps">—</dd></div>
       <div class="stat"><dt>Monthly premium</dt><dd id="statPremium">—</dd></div>
       <div class="stat"><dt>Agents producing</dt><dd id="statAgents">—</dd></div>
       <div class="stat"><dt>Top producer</dt><dd id="statTop">—</dd></div>
@@ -260,7 +276,7 @@
   const METRICS = {
     revenue: { label: 'Revenue', title: 'Projected revenue by agent', fmt: v => money(v) },
     premium: { label: 'Premium', title: 'Monthly premium by agent', fmt: v => money(v, true) },
-    apps:    { label: 'Apps',    title: 'Applications by agent', fmt: v => String(v) },
+    apps:    { label: 'Policies', title: 'Policies written by agent', fmt: v => plural(v) },
   };
 
   const qs = new URLSearchParams(location.search);
@@ -275,6 +291,7 @@
   const $ = id => document.getElementById(id);
   const fmtMoney0 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   const fmtMoney2 = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+  function plural(n) { return `${n} ${n === 1 ? 'policy' : 'policies'}`; }
   function money(v, cents) { return (cents ? fmtMoney2 : fmtMoney0).format(v || 0); }
 
   function parseIso(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
@@ -319,19 +336,15 @@
 
   function renderHero(d) {
     const m = state.metric;
-    const total = d.total[m];
-    $('heroLabel').textContent = m === 'apps' ? relLabel(d.date).replace('Total produced', 'Applications written') :
-      m === 'premium' ? relLabel(d.date).replace('Total produced', 'Premium written') : relLabel(d.date);
-    if (m === 'apps') {
-      $('heroValue').textContent = String(total);
-    } else {
-      const s = money(total, true);
-      const [whole, cents] = s.split('.');
-      $('heroValue').innerHTML = esc(whole) + '<span class="cents">.' + esc(cents) + '</span>';
-    }
+    // Headline money figure follows the metric (Policies view keeps revenue as the headline).
+    const money_m = m === 'premium' ? 'premium' : 'revenue';
+    $('heroLabel').textContent = money_m === 'premium' ? relLabel(d.date).replace('Total produced', 'Premium written') : relLabel(d.date);
+    const s = money(d.total[money_m], true);
+    const [whole, cents] = s.split('.');
+    $('heroValue').innerHTML = esc(whole) + '<span class="cents">.' + esc(cents) + '</span>';
+    $('heroPolicies').textContent = String(d.total.apps);
     const producing = d.agents.filter(a => a.apps > 0);
     const top = [...producing].sort((a, b) => b.revenue - a.revenue)[0];
-    $('statApps').textContent = d.total.apps;
     $('statPremium').textContent = money(d.total.premium, true);
     $('statAgents').textContent = `${producing.length} of ${d.agents.length}`;
     $('statTop').textContent = top ? top.agent : '—';
@@ -350,15 +363,15 @@
       $('chartSub').textContent = '';
       return;
     }
-    $('chartSub').textContent = d.total.apps ? '' : 'No apps logged yet';
+    $('chartSub').textContent = d.total.apps ? '' : 'No policies logged yet';
 
     list.innerHTML = agents.map((a, i) => {
       const v = a[m];
       const pct = max > 0 ? (v / max) * 82 : 0; // leave room for the value label
       const zero = v <= 0;
-      const extra = m === 'apps' ? '' : `<small>${a.apps} app${a.apps === 1 ? '' : 's'}</small>`;
+      const extra = m === 'apps' ? '' : `<span class="pill">${plural(a.apps)}</span>`;
       return `<li class="bar-row${zero ? ' is-zero' : ''}" data-i="${i}" tabindex="0"
-                 aria-label="${esc(a.agent)}: ${esc(meta.fmt(v))}, ${a.apps} applications">
+                 aria-label="${esc(a.agent)}: ${esc(meta.fmt(v))}, ${esc(plural(a.apps))}">
           <span class="bar-name"><span class="rank">${zero ? '' : i + 1}</span>${esc(a.agent)}</span>
           <span class="bar-track">
             <span class="bar${zero ? ' zero' : ''}" style="width:0%" data-w="${pct}"></span>
@@ -415,7 +428,7 @@
     tip.innerHTML = `<h3>${esc(a.agent)}</h3>
       <div>Revenue <b>${money(a.revenue, true)}</b></div>
       <div>Premium <b>${money(a.premium, true)}</b></div>
-      <div>Applications <b>${a.apps}</b></div>`;
+      <div>Policies <b>${a.apps}</b></div>`;
     const r = tip.getBoundingClientRect();
     const left = Math.min(x + 14, innerWidth - r.width - 8);
     const top = Math.min(y + 14, innerHeight - r.height - 8);

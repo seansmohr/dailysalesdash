@@ -3,7 +3,6 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { GoogleAuth } = require('google-auth-library');
 const { aggregateDay } = require('./lib/production');
 
@@ -12,7 +11,6 @@ const SHEET_ID = process.env.SHEET_ID || '1YVvXDVkLQmjQ8zgWlC_Ax-qiP9u8uh2wQfALA
 const SHEET_NAME = process.env.SHEET_NAME || 'Production Sheet';
 const TIMEZONE = process.env.TIMEZONE || 'America/Los_Angeles';
 const CACHE_SECONDS = Number(process.env.CACHE_SECONDS) || 60;
-const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
 const DEMO = process.env.DEMO_MODE === '1';
 
 const INDEX_HTML = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
@@ -70,21 +68,6 @@ function todayIso() {
 
 // ---------- HTTP ----------
 
-function checkAuth(req, res) {
-  if (!DASHBOARD_PASSWORD) return true;
-  const header = req.headers.authorization || '';
-  const [scheme, encoded] = header.split(' ');
-  if (scheme === 'Basic' && encoded) {
-    const pass = Buffer.from(encoded, 'base64').toString('utf8').split(':').slice(1).join(':');
-    const a = Buffer.from(pass);
-    const b = Buffer.from(DASHBOARD_PASSWORD);
-    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
-  }
-  res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="Daily Sales"' });
-  res.end('Authentication required');
-  return false;
-}
-
 function sendJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(body));
@@ -94,7 +77,6 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
   if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true });
-  if (!checkAuth(req, res)) return;
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });

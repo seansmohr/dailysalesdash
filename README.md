@@ -3,9 +3,9 @@
 A clean, live dashboard of each agent's daily production. It reads the
 **Production Sheet** tab of the **Master Production Sheet** in Google Sheets.
 
-- A large total at the top, plus app count, monthly premium, agents producing and top producer
-- A bar chart of each agent's production for the day, sorted highest first
-- Switch between **Revenue** (Projected Rev), **Premium**, and **Apps**
+- Two headline numbers at the top: **total produced** and **policies written**, plus monthly premium, agents producing and top producer
+- A bar chart of each agent's production for the day, sorted highest first, with each agent's policy count
+- Switch between **Revenue** (Projected Rev), **Premium**, and **Policies**
 - Change days with ‹ › or the date picker (← → keys work too)
 - On today's date it refreshes every 60 seconds
 - Only per-agent totals reach the browser. Client names, phone numbers and
@@ -33,13 +33,12 @@ still appear on days they wrote nothing, so a $0 shows up on the board.
 | Variable | Required | Value |
 |---|---|---|
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | yes | The whole contents of the key `.json` file (raw JSON or base64) |
-| `DASHBOARD_PASSWORD` | recommended | A password that gates the dashboard (browser login prompt, any username) |
 | `SHEET_ID` | no | Defaults to the Master Production Sheet |
 | `SHEET_NAME` | no | Defaults to `Production Sheet` |
 | `TIMEZONE` | no | Sets which day counts as "today". Defaults to `America/Los_Angeles` |
 | `CACHE_SECONDS` | no | How long sheet reads are cached. Defaults to `60` |
 
-3. **Settings → Networking → Generate Domain**. Open the URL.
+3. **Settings → Networking → Generate Domain**. Open the URL. No login is needed: anyone with the link can view it.
 
 Railway sets `PORT` itself. The health check is at `/healthz`.
 
