@@ -7,6 +7,10 @@ A clean, live dashboard of each agent's daily production. It reads the
 - A bar chart of each agent's production for the day, sorted highest first, with each agent's policy count
 - Switch between **Revenue** (Projected Rev), **Premium**, and **Policies**
 - Change days with ‹ › or the date picker (← → keys work too)
+- **Celebrates every sale**: when a new policy lands, a toast pops up
+  ("Sean just wrote a policy 🎉 +$1,000") with a confetti burst, and that agent's row glows
+- Leaderboard with agent initials, gold, silver and bronze for the top 3, and animated bars
+- **TV mode** for a wall screen on the sales floor: click ⛶, press **F**, or open `/?tv=1`
 - **Updates live**: about 15 seconds after anyone edits the sheet, every open dashboard
   refreshes by itself, with no reload. Changed totals briefly highlight.
 - Only per-agent totals reach the browser. Client names, phone numbers and
